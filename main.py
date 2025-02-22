@@ -13,7 +13,7 @@ def create_personal_message(name, dates):
     # Словарь для персонализированных обращений
     name_mappings = {
         "Maxim Зinovyev": "Макс",
-        "Konstantin Podlesnyi": "Костя",
+        "Konstantin Podlesnyi": "Костя", 
         "Anya Vilkova": "Аня",
         "Kirill Kriukov": "Кирилл",
         "Ilya Kolomiytsev": "Илья",
@@ -59,13 +59,15 @@ def group_by_player(results):
 def create_excel_report(player_dates):
     """Создание Excel-отчета с результатами"""
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Оплаты"
+    
+    # Создаем первую вкладку с оплатами
+    ws_payments = wb.active
+    ws_payments.title = "Оплаты"
 
     # Заголовки столбцов
     headers = ["Дата", "Имя", "Вид оплаты", "Статус"]
     for col, header in enumerate(headers, 1):
-        ws.cell(row=1, column=col, value=header)
+        ws_payments.cell(row=1, column=col, value=header)
 
     # Создаем выпадающие списки
     payment_type_dv = DataValidation(
@@ -80,15 +82,15 @@ def create_excel_report(player_dates):
         allow_blank=True
     )
 
-    ws.add_data_validation(payment_type_dv)
-    ws.add_data_validation(status_dv)
+    ws_payments.add_data_validation(payment_type_dv)
+    ws_payments.add_data_validation(status_dv)
 
-    # Заполняем данные
+    # Заполняем данные на первой вкладке
     row = 2
     for player, dates in player_dates.items():
         for date in dates:
-            ws.cell(row=row, column=1, value=date)
-            ws.cell(row=row, column=2, value=player)
+            ws_payments.cell(row=row, column=1, value=date)
+            ws_payments.cell(row=row, column=2, value=player)
             
             # Применяем валидацию к ячейкам
             payment_type_dv.add(f'C{row}')
@@ -97,7 +99,7 @@ def create_excel_report(player_dates):
             row += 1
 
     # Автоматическая настройка ширины столбцов
-    for column in ws.columns:
+    for column in ws_payments.columns:
         max_length = 0
         column_letter = column[0].column_letter
         for cell in column:
@@ -107,7 +109,24 @@ def create_excel_report(player_dates):
             except:
                 pass
         adjusted_width = (max_length + 2)
-        ws.column_dimensions[column_letter].width = adjusted_width
+        ws_payments.column_dimensions[column_letter].width = adjusted_width
+
+    # Создаем вторую вкладку с личными сообщениями
+    ws_messages = wb.create_sheet(title="Личные сообщения")
+    ws_messages.column_dimensions['A'].width = 30
+    ws_messages.column_dimensions['B'].width = 70
+
+    # Заголовки для личных сообщений
+    ws_messages.cell(row=1, column=1, value="Имя")
+    ws_messages.cell(row=1, column=2, value="Сообщение")
+
+    # Заполняем личные сообщения
+    row = 2
+    for player, dates in player_dates.items():
+        message = create_personal_message(player, dates)
+        ws_messages.cell(row=row, column=1, value=player)
+        ws_messages.cell(row=row, column=2, value=message)
+        row += 1
 
     # Изменяем логику сохранения файла
     try:

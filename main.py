@@ -7,6 +7,7 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 import os
 import sys
+import re
 
 def create_personal_message(name, dates):
     """Создание персонализированного сообщения"""
@@ -28,12 +29,43 @@ def create_personal_message(name, dates):
         "N": "Никита красивый",
         "Polina Matveeva": "Полина",
         "Daria Goltsova": "Дарья",
-        "Viacheslav": "Виачеслав",
+        "Viacheslav": "Слава",
+        "Svetlana": "Светлана",
+        "Valeriy": "Валерий",
+        "Nikita Shabalin": "Никита",
+        "Alice Koshechkina": "Алиса",
+        "Matvey": "Матвей",
+        "Ruslan": "Руслан",
+        "Anatoliy Kudrin": "Толя",
+        "Ivan": "Ваня",
+        "Andrey Beloborodov": "Андрей",
+        "Vanya": "Ваня",
+        "Sergey Tkachuk": "Сергей",
+        "Jek": "Женя",
+        "Stas Maltsev": "Стас",
+        "Noro Stambolyan": "Норо",
+        "Narek Sargsyan": "Нарек",
+        "Natali": "Натали",
+        "Արարատ Մարտիրոսյան": "Арарат",
+        "Artur Hovakanyan": "Артур",
+        "Edgar": "Эдгар",
+        "Greg": "Гриша",
+        "Leonid": "Лёня",
+        "Davo Abrahamyan": "Даво",
+        "Dronte": "Андрей",
+        "Lev Nikolsky": "Лев",
+        "Vladimir": "Владимир",
+        "Ivan Smirnov": "Иван",
+        "Kristina Demirtshyan": "Кристина",
+        "Ivan Nikolaev": "Ваня",
         # Добавьте другие соответствия имён по необходимости
     }
     
+    # Получаем базовое имя без [2], [3] и т.д.
+    base_name = re.sub(r'\s*\[\d+\]$', '', name)
+    
     # Получаем персональное обращение или используем полное имя
-    personal_name = name_mappings.get(name, name.split()[0])
+    personal_name = name_mappings.get(base_name, base_name.split()[0])
     
     # Форматируем даты
     if len(dates) == 1:
@@ -42,7 +74,7 @@ def create_personal_message(name, dates):
         dates_formatted = [d for d in dates[:-1]]
         date_str = f"за игры в {', '.join(dates_formatted)} и {dates[-1]}"
     
-    message = f"{personal_name}, привет!\nПодскажи, {date_str} картой оплачивал(а) или наличкой?"
+    message = f"{personal_name}, привет!\n\nПодскажи, {date_str} картой оплачивал или наличкой?"
     return message
 
 def group_by_player(results):
@@ -50,10 +82,13 @@ def group_by_player(results):
     player_dates = defaultdict(list)
     for result in results:
         date, weekday, *name_parts = result.split()
-        name = ' '.join(name_parts)
+        full_name = ' '.join(name_parts)
+        
         # Пропускаем исключённых игроков
-        if name not in EXCLUDED_PLAYERS:
-            player_dates[name].append(f"{weekday} {date}")
+        base_name = re.sub(r'\s*\[\d+\]$', '', full_name)  # Удаляем [2], [3] и т.д. для проверки в списке исключений
+        
+        if base_name not in EXCLUDED_PLAYERS:
+            player_dates[full_name].append(f"{weekday} {date}")
     return player_dates
 
 def create_excel_report(player_dates):

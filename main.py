@@ -9,58 +9,58 @@ import os
 import sys
 import re
 
+# Словарь для персонализированных обращений
+name_mappings = {
+    "Maxim Зinovyev": "Макс",
+    "Konstantin Podlesnyi": "Костя", 
+    "Anya Vilkova": "Аня",
+    "Kirill Kriukov": "Кирилл",
+    "Ilya Kolomiytsev": "Илья",
+    "Anna Kersilova": "Аня",
+    "Kniazev Sergei": "Сергей",
+    "Fedor Udalov": "Федя",
+    "Sergey Konstantinov": "Сергей",
+    "Ashot Gevorgyan": "Ашот",
+    "Dmitry Kuznetsov": "Дмитрий",
+    "Антирепрессант": "Араик",
+    "Артем А": "Артем",
+    "N": "Никита красивый",
+    "Polina Matveeva": "Полина",
+    "Daria Goltsova": "Дарья",
+    "Viacheslav": "Слава",
+    "Svetlana": "Светлана",
+    "Valeriy": "Валерий",
+    "Nikita Shabalin": "Никита",
+    "Alice Koshechkina": "Алиса",
+    "Matvey": "Матвей",
+    "Ruslan": "Руслан",
+    "Anatoliy Kudrin": "Толя",
+    "Ivan": "Ваня",
+    "Andrey Beloborodov": "Андрей",
+    "Vanya": "Ваня",
+    "Sergey Tkachuk": "Сергей",
+    "Jek": "Женя",
+    "Stas Maltsev": "Стас",
+    "Noro Stambolyan": "Норо",
+    "Narek Sargsyan": "Нарек",
+    "Natali": "Натали",
+    "Արարատ Մարտիրոսյան": "Арарат",
+    "Artur Hovakanyan": "Артур",
+    "Edgar": "Эдгар",
+    "Greg": "Гриша",
+    "Leonid": "Лёня",
+    "Davo Abrahamyan": "Даво",
+    "Dronte": "Андрей",
+    "Lev Nikolsky": "Лев",
+    "Vladimir": "Владимир",
+    "Ivan Smirnov": "Иван",
+    "Kristina Demirtshyan": "Кристина",
+    "Ivan Nikolaev": "Ваня",
+    # Добавьте другие соответствия имён по необходимости
+}
+
 def create_personal_message(name, dates):
     """Создание персонализированного сообщения"""
-    # Словарь для персонализированных обращений
-    name_mappings = {
-        "Maxim Зinovyev": "Макс",
-        "Konstantin Podlesnyi": "Костя", 
-        "Anya Vilkova": "Аня",
-        "Kirill Kriukov": "Кирилл",
-        "Ilya Kolomiytsev": "Илья",
-        "Anna Kersilova": "Аня",
-        "Kniazev Sergei": "Сергей",
-        "Fedor Udalov": "Федя",
-        "Sergey Konstantinov": "Сергей",
-        "Ashot Gevorgyan": "Ашот",
-        "Dmitry Kuznetsov": "Дмитрий",
-        "Антирепрессант": "Араик",
-        "Артем А": "Артем",
-        "N": "Никита красивый",
-        "Polina Matveeva": "Полина",
-        "Daria Goltsova": "Дарья",
-        "Viacheslav": "Слава",
-        "Svetlana": "Светлана",
-        "Valeriy": "Валерий",
-        "Nikita Shabalin": "Никита",
-        "Alice Koshechkina": "Алиса",
-        "Matvey": "Матвей",
-        "Ruslan": "Руслан",
-        "Anatoliy Kudrin": "Толя",
-        "Ivan": "Ваня",
-        "Andrey Beloborodov": "Андрей",
-        "Vanya": "Ваня",
-        "Sergey Tkachuk": "Сергей",
-        "Jek": "Женя",
-        "Stas Maltsev": "Стас",
-        "Noro Stambolyan": "Норо",
-        "Narek Sargsyan": "Нарек",
-        "Natali": "Натали",
-        "Արարատ Մարտիրոսյան": "Арарат",
-        "Artur Hovakanyan": "Артур",
-        "Edgar": "Эдгар",
-        "Greg": "Гриша",
-        "Leonid": "Лёня",
-        "Davo Abrahamyan": "Даво",
-        "Dronte": "Андрей",
-        "Lev Nikolsky": "Лев",
-        "Vladimir": "Владимир",
-        "Ivan Smirnov": "Иван",
-        "Kristina Demirtshyan": "Кристина",
-        "Ivan Nikolaev": "Ваня",
-        # Добавьте другие соответствия имён по необходимости
-    }
-    
     # Получаем базовое имя без [2], [3] и т.д.
     base_name = re.sub(r'\s*\[\d+\]$', '', name)
     
@@ -100,7 +100,7 @@ def create_excel_report(player_dates):
     ws_payments.title = "Оплаты"
 
     # Заголовки столбцов
-    headers = ["Дата", "Имя", "Вид оплаты", "Статус"]
+    headers = ["Дата", "Имя", "Реальное имя", "Вид оплаты", "Статус"]
     for col, header in enumerate(headers, 1):
         ws_payments.cell(row=1, column=col, value=header)
 
@@ -120,18 +120,43 @@ def create_excel_report(player_dates):
     ws_payments.add_data_validation(payment_type_dv)
     ws_payments.add_data_validation(status_dv)
 
-    # Заполняем данные на первой вкладке
-    row = 2
+    # Собираем данные для сортировки
+    payment_data = []
     for player, dates in player_dates.items():
+        # Получаем базовое имя без [2], [3] и т.д.
+        base_name = re.sub(r'\s*\[\d+\]$', '', player)
+        
+        # Получаем персональное обращение или используем полное имя
+        personal_name = name_mappings.get(base_name, base_name.split()[0])
+        
         for date in dates:
-            ws_payments.cell(row=row, column=1, value=date)
-            ws_payments.cell(row=row, column=2, value=player)
+            # Разбиваем дату на части для сортировки
+            weekday, day, month = date.split()[0], date.split()[1].split('.')[0], date.split()[1].split('.')[1]
+            # Формируем дату для сортировки (месяц.день)
+            sort_date = f"{month}.{day}"
             
-            # Применяем валидацию к ячейкам
-            payment_type_dv.add(f'C{row}')
-            status_dv.add(f'D{row}')
-            
-            row += 1
+            payment_data.append({
+                'sort_date': sort_date,
+                'display_date': date,
+                'player': player,
+                'personal_name': personal_name
+            })
+    
+    # Сортируем данные по дате
+    payment_data.sort(key=lambda x: (int(x['sort_date'].split('.')[0]), int(x['sort_date'].split('.')[1])))
+    
+    # Заполняем данные на первой вкладке в отсортированном порядке
+    row = 2
+    for entry in payment_data:
+        ws_payments.cell(row=row, column=1, value=entry['display_date'])
+        ws_payments.cell(row=row, column=2, value=entry['player'])  # Оригинальное имя
+        ws_payments.cell(row=row, column=3, value=entry['personal_name'])  # Персонализированное имя
+        
+        # Применяем валидацию к ячейкам
+        payment_type_dv.add(f'D{row}')
+        status_dv.add(f'E{row}')
+        
+        row += 1
 
     # Автоматическая настройка ширины столбцов
     for column in ws_payments.columns:

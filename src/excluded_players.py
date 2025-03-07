@@ -4,4 +4,5 @@ EXCLUDED_PLAYERS = {
     "Alisa Kukuruz",
     "Ono Markosyan",
     "Халит сегодня не дрищ",
+    "Халит сегодня не кринж",
 } 

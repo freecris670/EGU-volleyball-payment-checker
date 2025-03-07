@@ -22,10 +22,19 @@ class EventParser:
         participants = []
         current_date = None
         current_weekday = None
+        current_time = None
         current_year = 2025  # Задаем год по умолчанию из контекста
         
         lines = text.split('\n')
         for line in lines:
+            # Ищем время проведения игры
+            time_match = re.search(r'🕙Время:\s*(\d+[:\.]\d+)\s*до\s*(\d+[:\.]\d+)', line)
+            if time_match:
+                start_time = time_match.group(1).replace('.', ':')
+                end_time = time_match.group(2).replace('.', ':')
+                current_time = f"{start_time}-{end_time}"
+                continue
+                
             # Ищем дату в формате YYYY-MM-DD
             date_match = re.search(r'(\d{4}-\d{2}-\d{2})', line)
             if date_match:
@@ -55,6 +64,26 @@ class EventParser:
                         # В случае ошибки парсинга используем четверг (как в примере)
                         current_weekday = 'чт'
                 continue
+                
+            # Ищем информацию о игре во второй строке сообщения
+            game_info_match = re.search(r'✉️\s+Игра\s+(\d{2}\.\d{2})\s+\((\w+)\)', line)
+            if game_info_match:
+                date_str = game_info_match.group(1)
+                weekday_rus = game_info_match.group(2)
+                current_date = date_str
+                
+                # Преобразуем русский день недели в сокращенную форму
+                weekday_map_rus = {
+                    'Понедельник': 'пн', 
+                    'Вторник': 'вт', 
+                    'Среда': 'ср', 
+                    'Четверг': 'чт', 
+                    'Пятница': 'пт', 
+                    'Суббота': 'сб', 
+                    'Воскресенье': 'вс'
+                }
+                current_weekday = weekday_map_rus.get(weekday_rus, weekday_rus[:2].lower())
+                continue
 
             # Ищем участников в формате с votes
             vote_match = re.search(r'[├└]?\s*(?:[\d.]+\s*)?([^(]+)\((\d+)\s*votes\)', line)
@@ -62,7 +91,7 @@ class EventParser:
                 name = vote_match.group(1).strip()
                 votes = int(vote_match.group(2))
                 for _ in range(votes):
-                    participant_str = f"{current_date} {current_weekday} {name}"
+                    participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
                     participants.append(participant_str)
                 continue
 
@@ -72,7 +101,7 @@ class EventParser:
                 name = total_votes_match.group(1).strip()
                 votes = int(total_votes_match.group(2))
                 for _ in range(votes):
-                    participant_str = f"{current_date} {current_weekday} {name}"
+                    participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
                     participants.append(participant_str)
                 continue
 
@@ -80,7 +109,7 @@ class EventParser:
             numbered_match = re.search(r'[├└]\s*\d+\.\s*([^└├\n]+)', line)
             if numbered_match and current_date and current_weekday:
                 name = numbered_match.group(1).strip()
-                participant_str = f"{current_date} {current_weekday} {name}"
+                participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
                 participants.append(participant_str)
 
         return participants

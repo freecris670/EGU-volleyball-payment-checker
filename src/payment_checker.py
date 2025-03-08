@@ -85,12 +85,22 @@ class EventParser:
                 current_weekday = weekday_map_rus.get(weekday_rus, weekday_rus[:2].lower())
                 continue
 
+            # Проверяем на формат с уже существующей пометкой [N]
+            existing_vote_match = re.search(r'[├└]?\s*\d+\.\s*([^\[]+)\s*\[(\d+)\]', line)
+            if existing_vote_match and current_date and current_weekday:
+                name = existing_vote_match.group(1).strip()
+                votes = int(existing_vote_match.group(2))
+                # Добавляем игрока с его пометкой [N]
+                participant_str = f"{current_weekday} {current_date} | {current_time} | {name} [{votes}]"
+                participants.append(participant_str)
+                continue
+
             # Ищем участников в формате с votes
             vote_match = re.search(r'[├└]?\s*(?:[\d.]+\s*)?([^(]+)\((\d+)\s*votes\)', line)
             if vote_match and current_date and current_weekday:
                 name = vote_match.group(1).strip()
                 votes = int(vote_match.group(2))
-                # Изменяем: вместо дублирования участника, добавляем пометку о количестве голосов
+                # Добавляем пометку о количестве голосов, если больше 1
                 if votes > 1:
                     name_with_votes = f"{name} [{votes}]"
                 else:
@@ -104,7 +114,7 @@ class EventParser:
             if total_votes_match and current_date and current_weekday:
                 name = total_votes_match.group(1).strip()
                 votes = int(total_votes_match.group(2))
-                # Изменяем: вместо дублирования участника, добавляем пометку о количестве голосов
+                # Добавляем пометку о количестве голосов, если больше 1
                 if votes > 1:
                     name_with_votes = f"{name} [{votes}]"
                 else:
@@ -117,7 +127,10 @@ class EventParser:
             numbered_match = re.search(r'[├└]\s*\d+\.\s*([^└├\n]+)', line)
             if numbered_match and current_date and current_weekday:
                 name = numbered_match.group(1).strip()
-                participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
-                participants.append(participant_str)
+                # Если это не попало в предыдущие шаблоны и не содержит [N]
+                if not re.search(r'\[\d+\]$', name):
+                    participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
+                    participants.append(participant_str)
+                continue
 
         return participants

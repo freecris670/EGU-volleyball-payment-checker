@@ -75,8 +75,10 @@ def create_personal_message(name, dates):
         
         formatted_dates.append(date_display)
         
+        # Учитываем только дополнительные голоса (больше 1)
         if votes > 1:
-            multiple_votes_dates.append((date_display, votes))
+            additional_votes = votes - 1  # Вычитаем голос за себя
+            multiple_votes_dates.append((date_display, additional_votes))
     
     # Форматируем даты для основного сообщения
     if len(formatted_dates) == 1:
@@ -87,20 +89,26 @@ def create_personal_message(name, dates):
     # Основное сообщение
     message = f"{personal_name}, привет!\n\nПодскажи, {date_str} картой оплачивал или наличкой?"
     
-    # Если есть игры с несколькими голосами, добавляем дополнительный вопрос
+    # Если есть игры с дополнительными голосами, добавляем дополнительный вопрос
     if multiple_votes_dates:
         multiple_votes_message = "\n\nКстати, заметил, что у тебя "
         
         if len(multiple_votes_dates) == 1:
-            date, votes = multiple_votes_dates[0]
-            multiple_votes_message += f"на игру в {date} поставлено {votes} голоса."
+            date, additional_votes = multiple_votes_dates[0]
+            vote_phrase = "дополнительный голос" if additional_votes == 1 else "дополнительных голоса"
+            if additional_votes > 4:  # Для 5 и более используем "голосов"
+                vote_phrase = "дополнительных голосов"
+            multiple_votes_message += f"на игру в {date} есть {additional_votes} {vote_phrase}."
         else:
             vote_descriptions = []
-            for date, votes in multiple_votes_dates:
-                vote_descriptions.append(f"на игру в {date} - {votes} голоса")
-            multiple_votes_message += f"есть несколько голосов: {', '.join(vote_descriptions)}."
+            for date, additional_votes in multiple_votes_dates:
+                vote_phrase = "дополнительный голос" if additional_votes == 1 else "дополнительных голоса"
+                if additional_votes > 4:  # Для 5 и более используем "голосов"
+                    vote_phrase = "дополнительных голосов"
+                vote_descriptions.append(f"на игру в {date} - {additional_votes} {vote_phrase}")
+            multiple_votes_message += f"есть несколько дополнительных голосов: {', '.join(vote_descriptions)}."
         
-        multiple_votes_message += " Подскажи, у них тоже всё оплачено?"
+        multiple_votes_message += " Подскажи, эти дополнительные голоса тоже оплачены?"
         message += multiple_votes_message
     
     return message
@@ -110,11 +118,14 @@ def group_by_player(results):
     player_dates = defaultdict(list)
     
     # Структура для определения уникальных игр и подсчета голосов
-    # формат: {(дата, время, имя): счетчик_голосов}
+    # формат: {(дата, время, базовое_имя): максимальное_количество_голосов}
     vote_tracking = {}
     
+    # Словарь для хранения соответствия полных имен к базовым именам
+    name_to_base_name = {}
+    
     for result in results:
-        # Разбираем результат, который теперь включает и время игры
+        # Разбираем результат, который включает и время игры
         parts = result.split(' | ')
         if len(parts) >= 2:
             date_info = parts[0]  # дата и день недели
@@ -123,37 +134,41 @@ def group_by_player(results):
             
             # Проверяем, имеет ли имя пометку [N]
             vote_pattern = re.search(r'(.*?)\s*\[(\d+)\]$', full_name)
-            votes_from_name = 1
+            votes = 1  # По умолчанию 1 голос
             
             if vote_pattern:
-                base_full_name = vote_pattern.group(1).strip()
-                votes_from_name = int(vote_pattern.group(2))
-                full_name = base_full_name  # Используем имя без [N]
+                base_name = vote_pattern.group(1).strip()
+                votes = int(vote_pattern.group(2))
+            else:
+                base_name = full_name
+            
+            # Сохраняем связь полного имени с базовым (без [N])
+            name_to_base_name[full_name] = base_name
             
             date_parts = date_info.split()
             date = date_parts[1] if len(date_parts) > 1 else date_parts[0]
             weekday = date_parts[0] if len(date_parts) > 1 else ""
             
-            # Формируем уникальный ключ для игры и игрока
-            event_player_key = (date, event_time, full_name)
-            
             # Пропускаем исключённых игроков
-            base_name = full_name  # Теперь base_name уже не содержит [N]
-            
             if base_name not in EXCLUDED_PLAYERS:
+                # Формируем уникальный ключ для игры и базового имени игрока
+                event_player_key = (date, event_time, base_name)
+                
+                # Обновляем количество голосов, выбирая максимальное значение
+                current_votes = vote_tracking.get(event_player_key, 0)
+                vote_tracking[event_player_key] = max(current_votes, votes)
+                
                 # Формируем отображаемую дату с временем
                 display_date = f"{weekday} {date} | {event_time}"
                 
-                # Учитываем количество голосов (используем votes_from_name)
-                if event_player_key in vote_tracking:
-                    vote_tracking[event_player_key] += votes_from_name
-                else:
-                    vote_tracking[event_player_key] = votes_from_name
-                    # Добавляем дату только при первом обнаружении
-                    player_dates[full_name].append(display_date)
+                # Добавляем дату, если это первое появление базового имени
+                if base_name not in [name_to_base_name.get(p) for p in player_dates.keys()]:
+                    player_dates[base_name].append(display_date)
+                # Если базовое имя уже есть, проверяем наличие этой даты
+                elif display_date not in player_dates[base_name]:
+                    player_dates[base_name].append(display_date)
     
     # Обогащаем информацию о датах количеством голосов
-    # Создаем новую структуру данных с информацией о голосах
     enriched_player_dates = {}
     for player, dates in player_dates.items():
         enriched_dates = []

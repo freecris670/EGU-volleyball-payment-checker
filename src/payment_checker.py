@@ -90,9 +90,13 @@ class EventParser:
             if vote_match and current_date and current_weekday:
                 name = vote_match.group(1).strip()
                 votes = int(vote_match.group(2))
-                for _ in range(votes):
-                    participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
-                    participants.append(participant_str)
+                # Изменяем: вместо дублирования участника, добавляем пометку о количестве голосов
+                if votes > 1:
+                    name_with_votes = f"{name} [{votes}]"
+                else:
+                    name_with_votes = name
+                participant_str = f"{current_weekday} {current_date} | {current_time} | {name_with_votes}"
+                participants.append(participant_str)
                 continue
 
             # Ищем формат с total votes (новый формат)
@@ -100,9 +104,13 @@ class EventParser:
             if total_votes_match and current_date and current_weekday:
                 name = total_votes_match.group(1).strip()
                 votes = int(total_votes_match.group(2))
-                for _ in range(votes):
-                    participant_str = f"{current_weekday} {current_date} | {current_time} | {name}"
-                    participants.append(participant_str)
+                # Изменяем: вместо дублирования участника, добавляем пометку о количестве голосов
+                if votes > 1:
+                    name_with_votes = f"{name} [{votes}]"
+                else:
+                    name_with_votes = name
+                participant_str = f"{current_weekday} {current_date} | {current_time} | {name_with_votes}"
+                participants.append(participant_str)
                 continue
 
             # Ищем участников в формате с номером

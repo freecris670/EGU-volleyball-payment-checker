@@ -61,11 +61,8 @@ name_mappings = {
 
 def create_personal_message(name, dates):
     """Создание персонализированного сообщения"""
-    # Получаем базовое имя без [2], [3] и т.д.
-    base_name = re.sub(r'\s*\[\d+\]$', '', name)
-    
-    # Получаем персональное обращение или используем полное имя
-    personal_name = name_mappings.get(base_name, base_name.split()[0])
+    # Персональное обращение (имя уже обработано без [N] в group_by_player)
+    personal_name = name_mappings.get(name, name.split()[0])
     
     # Проверяем, есть ли игры с несколькими голосами
     multiple_votes_dates = []
@@ -124,6 +121,15 @@ def group_by_player(results):
             event_time = parts[1]  # время игры
             full_name = ' '.join(parts[2:])  # имя игрока
             
+            # Проверяем, имеет ли имя пометку [N]
+            vote_pattern = re.search(r'(.*?)\s*\[(\d+)\]$', full_name)
+            votes_from_name = 1
+            
+            if vote_pattern:
+                base_full_name = vote_pattern.group(1).strip()
+                votes_from_name = int(vote_pattern.group(2))
+                full_name = base_full_name  # Используем имя без [N]
+            
             date_parts = date_info.split()
             date = date_parts[1] if len(date_parts) > 1 else date_parts[0]
             weekday = date_parts[0] if len(date_parts) > 1 else ""
@@ -132,17 +138,17 @@ def group_by_player(results):
             event_player_key = (date, event_time, full_name)
             
             # Пропускаем исключённых игроков
-            base_name = re.sub(r'\s*\[\d+\]$', '', full_name)
+            base_name = full_name  # Теперь base_name уже не содержит [N]
             
             if base_name not in EXCLUDED_PLAYERS:
                 # Формируем отображаемую дату с временем
                 display_date = f"{weekday} {date} | {event_time}"
                 
-                # Учитываем количество голосов
+                # Учитываем количество голосов (используем votes_from_name)
                 if event_player_key in vote_tracking:
-                    vote_tracking[event_player_key] += 1
+                    vote_tracking[event_player_key] += votes_from_name
                 else:
-                    vote_tracking[event_player_key] = 1
+                    vote_tracking[event_player_key] = votes_from_name
                     # Добавляем дату только при первом обнаружении
                     player_dates[full_name].append(display_date)
     
@@ -204,11 +210,8 @@ def create_excel_report(player_dates):
     # Собираем данные для сортировки
     payment_data = []
     for player, dates in player_dates.items():
-        # Получаем базовое имя без [2], [3] и т.д.
-        base_name = re.sub(r'\s*\[\d+\]$', '', player)
-        
-        # Получаем персональное обращение или используем полное имя
-        personal_name = name_mappings.get(base_name, base_name.split()[0])
+        # Получаем персональное обращение (имя уже без [N])
+        personal_name = name_mappings.get(player, player.split()[0])
         
         for date_info in dates:
             # Разделяем дату и время
@@ -238,12 +241,26 @@ def create_excel_report(player_dates):
                     'event_time': event_time,
                     'player': player,
                     'personal_name': personal_name,
-                    'votes': votes,  # Общее количество голосов этого игрока в этой игре
-                    'event_key': event_key  # Уникальный ключ события для этого игрока
+                    'votes': votes,
+                    'event_key': event_key,
+                    'day': int(day),
+                    'month': int(month)
                 })
     
     # Сортируем данные по дате
-    payment_data.sort(key=lambda x: (int(x['sort_date'].split('.')[0]), int(x['sort_date'].split('.')[1])))
+    payment_data.sort(key=lambda x: (x['month'], x['day']))
+    
+    # Получаем первую и последнюю даты из отсортированного списка
+    start_date = None
+    end_date = None
+    
+    if payment_data:
+        first_item = payment_data[0]
+        last_item = payment_data[-1]
+        
+        # Форматируем даты в виде "DD.MM"
+        start_date = f"{first_item['day']:02d}.{first_item['month']:02d}"
+        end_date = f"{last_item['day']:02d}.{last_item['month']:02d}"
     
     # Заполняем данные на первой вкладке в отсортированном порядке
     row = 2
@@ -290,7 +307,7 @@ def create_excel_report(player_dates):
         ws_messages.cell(row=row, column=2, value=message)
         row += 1
 
-    # Изменяем логику сохранения файла
+    # Изменяем логику сохранения файла - без диалога с пользователем
     try:
         # Получаем путь к директории, где находится исполняемый файл
         if getattr(sys, 'frozen', False):
@@ -301,23 +318,25 @@ def create_excel_report(player_dates):
             application_path = os.path.dirname(os.path.abspath(__file__))
             
         # Создаем директорию для отчетов, если её нет
-        reports_dir = os.path.join(application_path, 'reports')
+        reports_dir = os.path.join(application_path, 'Оплаты за волейбол')
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
-            
-        # Предлагаем сохранить файл
-        file_path = filedialog.asksaveasfilename(
-            initialdir=reports_dir,
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx")],
-            title="Сохранить отчет как..."
-        )
         
-        if file_path:
-            wb.save(file_path)
-            print(f"\nОтчет сохранен в файл: {file_path}")
-        else:
-            print("\nСохранение отчета отменено")
+        # Формируем имя файла
+        filename = "Оплаты за волейбол"
+        if start_date and end_date:
+            if start_date == end_date:
+                filename += f" {start_date}"
+            else:
+                filename += f" {start_date}-{end_date}"
+        filename += ".xlsx"
+        
+        # Формируем полный путь к файлу
+        file_path = os.path.join(reports_dir, filename)
+        
+        # Сохраняем файл без запроса пользователя
+        wb.save(file_path)
+        print(f"\nОтчет автоматически сохранен в файл: {file_path}")
             
     except Exception as e:
         print(f"\nОшибка при сохранении файла: {e}")
